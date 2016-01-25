@@ -1,24 +1,6 @@
-from bs4 import BeautifulSoup
-from requests import post
 import csv
-import re
 
 __author__ = 'reedn'
-
-URL = 'https://www.sec.gov/cgi-bin/cik.pl.c'
-
-def standardize_name(name):
-    match = re.search(r'(.*) INC$', name)
-    if match:
-        name = match.group(1)
-        return name + ", INC."
-    return name
-
-def scrape_company_cik(name):
-    print "CIK for %s missing, scraping..." % name
-    res = post(URL, data={'company':standardize_name(name)})
-    bs = BeautifulSoup(res.text)
-    return bs.find("a").get_text()
 
 # Read CIK's, Names into ticker_info, dictionary of ticker to CIK and Name
 tickers_to_ciks = {}
@@ -50,18 +32,21 @@ with open("russell_2000_components.csv", "r") as components_in:
             output_row = dict()
             output_row['Ticker'] = ticker
             cik = tickers_to_ciks.get(ticker)
-            if not cik:
-                print("No CIK for " + ticker)
-                cik = scrape_company_cik(company_name)
+            # Scrape
+            #if not cik:
+            #    print("No CIK for " + ticker)
+                #cik = scrape_company_cik(company_name)
             if cik:
                 output_row['CIK'] = cik
                 output_row['Name'] = company_name
                 writer.writerow(output_row)
             else:
-                missing_ciks.append(ticker)
+                missing_ciks.append({'Ticker' : ticker, 'Name' : company_name})
 
 print "%d components processed." % row_count
 
-with open("missing_ciks.txt", "w") as missing_ciks_out:
-    for ticker in missing_ciks:
-        missing_ciks_out.write(ticker + "\n")
+with open("missing_ciks.csv", "w") as missing_ciks_out:
+    writer = csv.DictWriter(missing_ciks_out, ['Ticker', 'Name'])
+    writer.writeheader()
+    for missing_info in missing_ciks:
+        writer.writerow(missing_info)
